@@ -7,6 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+# Visual Studio
+.vs/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -52,3 +55,25 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Angular / Node.js
+node_modules/
+jspm_packages/
+
+# Compiled output
+dist/
+build/
+tmp/
+temp/
+out-tsc/
+
+# Angular specific
+.angular/
+.angular/cache/
+
+# IDE
+.vscode/
+.history/
+
+# Ignore temporary files from dotnet watch
+*.dotnet-watch.json
