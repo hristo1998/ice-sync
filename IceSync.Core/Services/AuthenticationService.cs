@@ -1,8 +1,9 @@
 ﻿using IceSync.Core.Config;
+using IceSync.Core.Models;
 using IceSync.Core.Services.Interfaces;
 using Microsoft.Extensions.Options;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace IceSync.Core.Services;
@@ -14,6 +15,9 @@ public class AuthenticationService : IAuthenticationService
 
     private string? token;
     private DateTime expiry;
+
+    private const string AuthV2Path = "v2/authenticate";
+    private const string AuthenticationFailedErrorMessage = "Authentication failed: no access token acquired.";
 
     public AuthenticationService(HttpClient httpClient, IOptions<ApiSettings> options)
     {
@@ -33,14 +37,18 @@ public class AuthenticationService : IAuthenticationService
             apiUserSecret = settings.ApiUserSecret
         };
 
-        var response = await httpClient.PostAsJsonAsync($"{settings.BaseUrl}/v2/authenticate", credentials);
+        var response = await httpClient.PostAsJsonAsync($"{settings.BaseUrl}/{AuthV2Path}", credentials);
         response.EnsureSuccessStatusCode();
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        token = json.GetProperty("access_token").GetString();
-        var expiresIn = json.GetProperty("expires_in").GetInt32();
-        expiry = DateTime.UtcNow.AddSeconds(expiresIn - 60); // subtract 1 min safety buffer
+        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>(); 
 
-        return token!;
+        if (authResponse == null || string.IsNullOrEmpty(authResponse.AccessToken))
+            throw new InvalidOperationException(AuthenticationFailedErrorMessage);
+
+        token = authResponse.AccessToken;
+
+        expiry = DateTime.UtcNow.AddSeconds(authResponse.ExpiresIn - 60); // subtract 1 min safety buffer
+
+        return token;
     }
 }

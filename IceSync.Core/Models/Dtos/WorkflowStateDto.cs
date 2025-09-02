@@ -18,5 +18,5 @@ public class WorkflowStateDto
 
     public string? Description { get; set; }
 
-    public bool IsSystemState { get; set; }
+    public bool IsSystemState { get; set; } 
 }

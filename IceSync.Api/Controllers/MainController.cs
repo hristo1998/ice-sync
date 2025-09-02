@@ -1,4 +1,5 @@
 ﻿using IceSync.Core.Models;
+using IceSync.Core.Models.Dtos;
 using IceSync.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -45,11 +46,11 @@ public class MainController : ControllerBase
         Ok(await _ulService.GetWorkflowStateByIdAsync(id));
 
     [HttpPost("workflow-states")]
-    public async Task<IActionResult> CreateState([FromBody] WorkflowState state) =>
+    public async Task<IActionResult> CreateState([FromBody] WorkflowStateDto state) =>
         Ok(await _ulService.CreateWorkflowStateAsync(state));
 
     [HttpPut("workflow-states")]
-    public async Task<IActionResult> UpdateState([FromBody] WorkflowState state, [FromQuery] string? externalUser) =>
+    public async Task<IActionResult> UpdateState([FromBody] WorkflowStateDto state, [FromQuery] string? externalUser) =>
         Ok(await _ulService.UpdateWorkflowStateAsync(state, externalUser));
 
     [HttpDelete("workflow-states/{id}")]

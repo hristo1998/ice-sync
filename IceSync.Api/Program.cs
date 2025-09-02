@@ -12,11 +12,12 @@ namespace IceSync.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Bind settings
+            // Bind settings.
             builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("UniversalLoader"));
 
 
             // Add services to the container.
+            builder.Services.AddHttpClient();
             builder.Services.AddSingleton<IAuthenticationService, AuthenticationService>();
             builder.Services.AddScoped<IUniversalLoaderService, UniversalLoaderService>();
 

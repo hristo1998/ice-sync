@@ -2,6 +2,7 @@
 using IceSync.Core.Models;
 using IceSync.Core.Models.Dtos;
 using IceSync.Core.Services.Interfaces;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -11,141 +12,190 @@ namespace IceSync.Core.Services;
 
 public class UniversalLoaderService : IUniversalLoaderService
 {
-    private readonly HttpClient _httpClient;
-    private readonly IAuthenticationService _authService;
-    private readonly ApiSettings _settings;
+    private readonly HttpClient httpClient;
+    private readonly IAuthenticationService authService;
+    private readonly ApiSettings settings;
+
+    private const string BearerScheme = "Bearer";
+
+    // Workflows
+    private const string WorkflowsEndpoint = "/workflows";
+    private static readonly string RunWorkflowEndpoint = $"/{WorkflowsEndpoint}/{{0}}/run";
+
+    // Executions
+    private const string WorkflowExecutionsEndpoint = "/workflows/executions";
+    private static readonly string ExecutionStepsEndpoint = $"/{WorkflowExecutionsEndpoint}/{{0}}/steps";
+    private static readonly string RetryExecutionEndpoint = $"/{WorkflowExecutionsEndpoint}/{{0}}/retry";
+
+    // Workflow States
+    private const string WorkflowStatesEndpoint = "/workflow-states";
 
     public UniversalLoaderService(HttpClient httpClient, IAuthenticationService authService, IOptions<ApiSettings> options)
     {
-        _httpClient = httpClient;
-        _authService = authService;
-        _settings = options.Value;
+        this.httpClient = httpClient;
+        this.authService = authService;
+        settings = options.Value;
     }
 
-    /// <summary>
-    /// Ensures the HttpClient has a valid Bearer token.
-    /// </summary>
-    private async Task PrepareClientAsync()
-    {
-        var token = await _authService.GetTokenAsync();
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token);
-    }
-
-    // -----------------------------------------------------------
     // Workflows
-    // -----------------------------------------------------------
     public async Task<List<Workflow>> GetWorkflowsAsync()
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.GetAsync($"{_settings.BaseUrl}/workflows");
+        var request = await CreateRequestAsync(HttpMethod.Get, WorkflowsEndpoint);
+        var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
-        var apiResponse = await response.Content.ReadFromJsonAsync<List<WorkflowDto>>() ?? new List<WorkflowDto>();
 
-        var resonse = apiResponse.Select(dto => Workflow.MapToDomain(dto)).ToList();
-
-        return resonse;
+        var modelDto = await response.Content.ReadFromJsonAsync<List<WorkflowDto>>() ?? new List<WorkflowDto>();
+        var result = modelDto.Select(Workflow.MapToDomain).ToList();
+        return result;
     }
 
     public async Task<bool> RunWorkflowAsync(int workflowId, bool? waitOutput = null, bool? decodeOutputJsonString = null)
     {
-        await PrepareClientAsync();
+        var url = string.Format(RunWorkflowEndpoint, workflowId);
 
-        var url = $"{_settings.BaseUrl}/workflows/{workflowId}/run";
-        var query = new List<string>();
-        if (waitOutput.HasValue) query.Add($"waitOutput={waitOutput.Value}");
-        if (decodeOutputJsonString.HasValue) query.Add($"decodeOutputJsonString={decodeOutputJsonString.Value}");
-        if (query.Any()) url += "?" + string.Join("&", query);
+        if (waitOutput.HasValue || decodeOutputJsonString.HasValue)
+        {
+            var parameters = new Dictionary<string, string?>();
+            if (waitOutput.HasValue) parameters[nameof(waitOutput)] = waitOutput.Value.ToString();
+            if (decodeOutputJsonString.HasValue) parameters[nameof(decodeOutputJsonString)] = decodeOutputJsonString.Value.ToString();
+            url = QueryHelpers.AddQueryString(url, parameters);
+        }
 
-        var response = await _httpClient.PostAsync(url, null);
+        var request = await CreateRequestAsync(HttpMethod.Post, url);
+        var response = await httpClient.SendAsync(request);
         return response.IsSuccessStatusCode;
     }
 
-    // -----------------------------------------------------------
-    // Workflow Executions
-    // -----------------------------------------------------------
-    public async Task<List<WorkflowExecution>> GetWorkflowExecutionsAsync(int? workflowId = null, DateTime? from = null, DateTime? to = null)
+    // Executions
+    public async Task<List<WorkflowExecution>> GetWorkflowExecutionsAsync(
+        int? workflowId = null, 
+        DateTime? execStartFromUtcDateTime = null, 
+        DateTime? execStartToUtcDateTime = null)
     {
-        await PrepareClientAsync();
+        var url = WorkflowExecutionsEndpoint;
 
-        var query = new List<string>();
-        if (workflowId.HasValue) query.Add($"workflowId={workflowId.Value}");
-        if (from.HasValue) query.Add($"execStartFromUtcDateTime={from.Value:o}");
-        if (to.HasValue) query.Add($"execStartToUtcDateTime={to.Value:o}");
+        if (workflowId.HasValue || execStartFromUtcDateTime.HasValue || execStartToUtcDateTime.HasValue)
+        {
+            var parameters = new Dictionary<string, string?>();
+            if (workflowId.HasValue) parameters[nameof(workflowId)] = workflowId.Value.ToString();
+            if (execStartFromUtcDateTime.HasValue) parameters[nameof(execStartFromUtcDateTime)] = execStartFromUtcDateTime.Value.ToString("O");
+            if (execStartToUtcDateTime.HasValue) parameters[nameof(execStartToUtcDateTime)] = execStartToUtcDateTime.Value.ToString("O");
 
-        var url = $"{_settings.BaseUrl}/workflows/executions";
-        if (query.Any()) url += "?" + string.Join("&", query);
+            url = QueryHelpers.AddQueryString(url, parameters);
+        }
 
-        var response = await _httpClient.GetAsync(url);
+        var request = await CreateRequestAsync(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<List<WorkflowExecution>>() ?? new List<WorkflowExecution>();
+        var modelDto = await response.Content.ReadFromJsonAsync<List<WorkflowExecutionDto>>() ?? new List<WorkflowExecutionDto>();
+        var result = modelDto.Select(WorkflowExecution.MapToDomain).ToList();
+        return result;
     }
 
-    public async Task<List<object>> GetExecutionStepsAsync(int executionId)
+    public async Task<List<WorkflowExecutionStep>> GetExecutionStepsAsync(int executionId)
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.GetAsync($"{_settings.BaseUrl}/workflows/executions/{executionId}/steps");
+        var url = string.Format(ExecutionStepsEndpoint, executionId);
+        var request = await CreateRequestAsync(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
-        // swagger doesn’t define schema for steps, so keep as object[]
-        return await response.Content.ReadFromJsonAsync<List<object>>() ?? new List<object>();
+        // Return raw element so you can decide later how to shape it
+        var modelDto = await response.Content.ReadFromJsonAsync<List<WorkflowExecutionStepDto>>() ?? new List<WorkflowExecutionStepDto>();
+        return modelDto.Select(WorkflowExecutionStep.ToDomain).ToList();
     }
 
     public async Task<bool> RetryExecutionAsync(int executionId)
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.PostAsync($"{_settings.BaseUrl}/workflows/executions/{executionId}/retry", null);
+        var url = string.Format(RetryExecutionEndpoint, executionId);
+        var request = await CreateRequestAsync(HttpMethod.Post, url);
+        var response = await httpClient.SendAsync(request);
         return response.IsSuccessStatusCode;
     }
 
-    // -----------------------------------------------------------
     // Workflow States
-    // -----------------------------------------------------------
     public async Task<List<WorkflowState>> GetWorkflowStatesAsync()
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.GetAsync($"{_settings.BaseUrl}/workflow-states");
+        var request = await CreateRequestAsync(HttpMethod.Get, WorkflowStatesEndpoint);
+        var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<WorkflowState>>() ?? new List<WorkflowState>();
+
+        var modelDto = await response.Content.ReadFromJsonAsync<List<WorkflowStateDto>>() ?? new List<WorkflowStateDto>();
+        return modelDto.Select(WorkflowState.MapToDomain).ToList();
     }
 
     public async Task<WorkflowState?> GetWorkflowStateByIdAsync(int id)
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.GetAsync($"{_settings.BaseUrl}/workflow-states/{id}");
+        var url = $"{WorkflowStatesEndpoint}/{id}";
+        var request = await CreateRequestAsync(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<WorkflowState>();
+
+        var modelDto = await response.Content.ReadFromJsonAsync<WorkflowStateDto>();
+
+        return WorkflowState.MapToDomain(modelDto!);
     }
 
-    public async Task<WorkflowState?> CreateWorkflowStateAsync(WorkflowState state)
+    public async Task<WorkflowState?> CreateWorkflowStateAsync(WorkflowStateDto state)
     {
-        await PrepareClientAsync();
-        var response = await _httpClient.PostAsJsonAsync($"{_settings.BaseUrl}/workflow-states", state);
+        var request = await CreateRequestAsync(HttpMethod.Post, WorkflowStatesEndpoint, state);
+        var response = await httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<WorkflowState>();
+
+        var modelDto = await response.Content.ReadFromJsonAsync<WorkflowStateDto>();
+
+        return WorkflowState.MapToDomain(modelDto!);
     }
 
-    public async Task<WorkflowState?> UpdateWorkflowStateAsync(WorkflowState state, string? externalUser = null)
+    public async Task<WorkflowState?> UpdateWorkflowStateAsync(WorkflowStateDto state, string? externalUser = null)
     {
-        await PrepareClientAsync();
-        var url = $"{_settings.BaseUrl}/workflow-states";
-        if (!string.IsNullOrEmpty(externalUser))
-            url += $"?externalUser={externalUser}";
+        var url = WorkflowStatesEndpoint;
 
-        var response = await _httpClient.PutAsJsonAsync(url, state);
+        if (!string.IsNullOrWhiteSpace(externalUser))
+        {
+            var parameters = new Dictionary<string, string?> { [nameof(externalUser)] = externalUser };
+            url = QueryHelpers.AddQueryString(url, parameters);
+        }
+
+        var request = await CreateRequestAsync(HttpMethod.Put, url, state);
+        var response = await httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<WorkflowState>();
+
+        var modelDto = await response.Content.ReadFromJsonAsync<WorkflowStateDto>();
+
+        return WorkflowState.MapToDomain(modelDto!);
     }
 
     public async Task<bool> DeleteWorkflowStateAsync(int id, string? externalUser = null)
     {
-        await PrepareClientAsync();
-        var url = $"{_settings.BaseUrl}/workflow-states/{id}";
-        if (!string.IsNullOrEmpty(externalUser))
-            url += $"?externalUser={externalUser}";
+        var url = $"{WorkflowStatesEndpoint}/{id}";
 
-        var response = await _httpClient.DeleteAsync(url);
+        if (!string.IsNullOrWhiteSpace(externalUser))
+        {
+            var parameters = new Dictionary<string, string?> { [nameof(externalUser)] = externalUser };
+            url = QueryHelpers.AddQueryString(url, parameters);
+        }
+
+        var request = await CreateRequestAsync(HttpMethod.Delete, url);
+        var response = await httpClient.SendAsync(request);
         return response.IsSuccessStatusCode;
+    }
+
+    private async Task<HttpRequestMessage> CreateRequestAsync(
+        HttpMethod method,
+        string endpoint,
+        object? content = null)
+    {
+        var token = await authService.GetTokenAsync();
+
+        var request = new HttpRequestMessage(method, settings.BaseUrl + endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue(BearerScheme, token);
+
+        if (content is not null)
+        {
+            request.Content = JsonContent.Create(content);
+        }
+
+        return request;
     }
 }

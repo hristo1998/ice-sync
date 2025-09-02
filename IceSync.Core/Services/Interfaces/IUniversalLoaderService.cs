@@ -1,4 +1,5 @@
 ﻿using IceSync.Core.Models;
+using IceSync.Core.Models.Dtos;
 
 namespace IceSync.Core.Services.Interfaces;
 
@@ -11,14 +12,14 @@ public interface IUniversalLoaderService
 
     // Workflow Executions
     Task<List<WorkflowExecution>> GetWorkflowExecutionsAsync(int? workflowId = null, DateTime? from = null, DateTime? to = null);
-    Task<List<object>> GetExecutionStepsAsync(int executionId);
+    Task<List<WorkflowExecutionStep>> GetExecutionStepsAsync(int executionId);
     Task<bool> RetryExecutionAsync(int executionId);
 
 
     // Workflow States
     Task<List<WorkflowState>> GetWorkflowStatesAsync();
     Task<WorkflowState?> GetWorkflowStateByIdAsync(int id);
-    Task<WorkflowState?> CreateWorkflowStateAsync(WorkflowState state);
-    Task<WorkflowState?> UpdateWorkflowStateAsync(WorkflowState state, string? externalUser = null);
+    Task<WorkflowState?> CreateWorkflowStateAsync(WorkflowStateDto state);
+    Task<WorkflowState?> UpdateWorkflowStateAsync(WorkflowStateDto state, string? externalUser = null);
     Task<bool> DeleteWorkflowStateAsync(int id, string? externalUser = null);
 }
