@@ -66,21 +66,21 @@ public class Workflow
         OwnerUserId = dto.OwnerUserId,
         MultiExecBehavior = dto.MultiExecBehavior switch
         {
-            "Parallel" => Models.MultiExecBehavior.Parallel,
-            "Sequential" => Models.MultiExecBehavior.Sequential,
+            nameof(Models.MultiExecBehavior.Parallel) => Models.MultiExecBehavior.Parallel, // Deducted from api responses
+            nameof(Models.MultiExecBehavior.Sequential) => Models.MultiExecBehavior.Sequential, // Guessed. Keep filling the enum with reponses from the api
             _ => Models.MultiExecBehavior.Unknown
         },
         ExecutionRetriesCount = dto.ExecutionRetriesCount,
         ExecutionRetriesPeriod = dto.ExecutionRetriesPeriod,
         ExecutionRetriesPeriodTimeUnit = dto.ExecutionRetriesPeriodTimeUnit switch
         {
-            "Second" => TimeUnit.Second,
-            "Minute" => TimeUnit.Minute, // The only one confirmed as an actual Universal Loader api response. 
-            "Hour" => TimeUnit.Hour,
-            "Day" => TimeUnit.Day,
-            "Week" => TimeUnit.Week,
-            "Month" => TimeUnit.Month,
-            "Year" => TimeUnit.Year,
+            nameof(TimeUnit.Second) => TimeUnit.Second,
+            nameof(TimeUnit.Minute) => TimeUnit.Minute, // The only one confirmed as an actual Universal Loader api response. 
+            nameof(TimeUnit.Hour) => TimeUnit.Hour,
+            nameof(TimeUnit.Day) => TimeUnit.Day,
+            nameof(TimeUnit.Week) => TimeUnit.Week,
+            nameof(TimeUnit.Month) => TimeUnit.Month,
+            nameof(TimeUnit.Year) => TimeUnit.Year,
             _ => TimeUnit.Other // All are guessed based on "Minute". Keep adding/changing as new responses are discovered from the api.
         },
         ProgressiveRetryMultiplier = dto.ProgressiveRetryMultiplier,
