@@ -15,7 +15,6 @@ namespace IceSync.Api
             // Bind settings.
             builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("UniversalLoader"));
 
-
             // Add services to the container.
             builder.Services.AddHttpClient();
             builder.Services.AddSingleton<IAuthenticationService, AuthenticationService>();
@@ -31,6 +30,16 @@ namespace IceSync.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAngularDevClient", policy =>
+                {
+                    policy.WithOrigins("http://localhost:4200")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -41,6 +50,10 @@ namespace IceSync.Api
             }
 
             app.UseHttpsRedirection();
+
+            app.UseRouting();
+
+            app.UseCors("AllowAngularDevClient");
 
             app.MapControllers();
 

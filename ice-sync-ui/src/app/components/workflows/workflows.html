@@ -1,0 +1,47 @@
+<div class="workflows">
+  <h2>Workflows</h2>
+
+  <mat-progress-spinner *ngIf="loading" mode="indeterminate"></mat-progress-spinner>
+
+  <table mat-table [dataSource]="workflows" class="mat-elevation-z8" *ngIf="!loading && workflows.length">
+
+    <!-- ID -->
+    <ng-container matColumnDef="id">
+      <th mat-header-cell *matHeaderCellDef>Workflow Id</th>
+      <td mat-cell *matCellDef="let wf">{{ wf.id }}</td>
+    </ng-container>
+
+    <!-- Name -->
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef>Workflow Name</th>
+      <td mat-cell *matCellDef="let wf">{{ wf.name }}</td>
+    </ng-container>
+
+    <!-- Active -->
+    <ng-container matColumnDef="isActive">
+      <th mat-header-cell *matHeaderCellDef>Is Active</th>
+      <td mat-cell *matCellDef="let wf">{{ wf.isActive ? 'Yes' : 'No' }}</td>
+    </ng-container>
+
+    <!-- Behavior -->
+    <ng-container matColumnDef="multiExecBehavior">
+      <th mat-header-cell *matHeaderCellDef>Multi Exec Behavior</th>
+      <td mat-cell *matCellDef="let wf">{{ wf.multiExecBehavior }}</td>
+    </ng-container>
+
+    <!-- Action -->
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef>Run</th>
+      <td mat-cell *matCellDef="let wf">
+        <button mat-raised-button color="primary" (click)="runWorkflow(wf.id)">
+          Run
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="['id','name','isActive','multiExecBehavior','actions']"></tr>
+    <tr mat-row *matRowDef="let row; columns: ['id','name','isActive','multiExecBehavior','actions'];"></tr>
+  </table>
+
+  <p class="message" *ngIf="message">{{ message }}</p>
+</div>

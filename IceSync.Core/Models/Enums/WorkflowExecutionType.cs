@@ -3,7 +3,7 @@
 public enum WorkflowExecutionType
 {
     Api = 1,
-    Type2 = 2,
+    Manual = 2,
     Type3 = 3,
     Type4 = 4,
     Type5 = 5,

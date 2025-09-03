@@ -32,12 +32,13 @@ public class WorkflowExecution
         StopDateTime = dto.StopDateTime,
         ExecutionStatus = dto.ExecutionStatus switch
         {
-            "Success" => ExecutionStatus.Success, // The only one retrieved from the Universal Loader api
+            nameof(ExecutionStatus.Success) => ExecutionStatus.Success, // The only one retrieved from the Universal Loader api
             _ => ExecutionStatus.Unknown // Default option. Keep adding options as you discover them.
         },
         WorkflowExecutionType = dto.WorkflowExecutionType switch
         {
-            "Api" => WorkflowExecutionType.Api, // The only one retrieved from the Universal Loader api
+            nameof(WorkflowExecutionType.Api) => WorkflowExecutionType.Api, // Retrieved from the Universal Loader api
+            nameof(WorkflowExecutionType.Manual) => WorkflowExecutionType.Manual, // Retrieved from the Universal Loader api
             _ => WorkflowExecutionType.Unknown // Default option. Keep adding options as you discover them.
         },
         ExecutionUserName = dto.ExecutionUserName,
