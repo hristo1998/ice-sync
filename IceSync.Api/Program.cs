@@ -1,7 +1,15 @@
 
+using ContosoUniversity.DAL;
+using IceSync.Api.Extensions;
 using IceSync.Core.Config;
 using IceSync.Core.Services;
 using IceSync.Core.Services.Interfaces;
+using IceSync.Core.SyncSerice;
+using IceSync.Data;
+using IceSync.Data.Entities;
+using IceSync.Data.Repositories;
+using IceSync.Data.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 
 namespace IceSync.Api
@@ -15,10 +23,11 @@ namespace IceSync.Api
             // Bind settings.
             builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("UniversalLoader"));
 
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
             // Add services to the container.
-            builder.Services.AddHttpClient();
-            builder.Services.AddSingleton<IAuthenticationService, AuthenticationService>();
-            builder.Services.AddScoped<IUniversalLoaderService, UniversalLoaderService>();
+            builder.Services.AddServices();
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>

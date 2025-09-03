@@ -1,4 +1,5 @@
 ﻿using IceSync.Core.Config;
+using IceSync.Core.Constants;
 using IceSync.Core.Models;
 using IceSync.Core.Services.Interfaces;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,6 @@ public class AuthenticationService : IAuthenticationService
     private DateTime expiry;
 
     private const string AuthV2Path = "v2/authenticate";
-    private const string AuthenticationFailedErrorMessage = "Authentication failed: no access token acquired.";
 
     public AuthenticationService(HttpClient httpClient, IOptions<ApiSettings> options)
     {
@@ -43,7 +43,7 @@ public class AuthenticationService : IAuthenticationService
         var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>(); 
 
         if (authResponse == null || string.IsNullOrEmpty(authResponse.AccessToken))
-            throw new InvalidOperationException(AuthenticationFailedErrorMessage);
+            throw new InvalidOperationException(MessagingConstants.AuthenticationFailedErrorMessage);
 
         token = authResponse.AccessToken;
 
