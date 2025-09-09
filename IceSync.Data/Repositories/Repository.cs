@@ -17,7 +17,7 @@ namespace IceSync.Data.Repositories
             this.dbSet = context.Set<TEntity>();
         }
 
-        public virtual IEnumerable<TEntity> Get(
+        public virtual IQueryable<TEntity> All(
             Expression<Func<TEntity, bool>> filter = null,
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
             string includeProperties = "")
@@ -37,39 +37,11 @@ namespace IceSync.Data.Repositories
 
             if (orderBy != null)
             {
-                return orderBy(query).ToList();
+                return orderBy(query);
             }
             else
             {
-                return query.ToList();
-            }
-        }
-
-        public virtual async Task<IEnumerable<TEntity>> GetAsync(
-            Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            string includeProperties = "")
-        {
-            IQueryable<TEntity> query = dbSet;
-
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            foreach (var includeProperty in includeProperties.Split
-                (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                query = query.Include(includeProperty);
-            }
-
-            if (orderBy != null)
-            {
-                return orderBy(query).ToList();
-            }
-            else
-            {
-                return query.ToList();
+                return query;
             }
         }
 
@@ -111,6 +83,16 @@ namespace IceSync.Data.Repositories
             {
                 dbSet.Attach(entityToDelete);
             }
+            dbSet.Remove(entityToDelete);
+        }
+
+        public virtual void ExecuteDeleteAsync(TEntity entityToDelete)
+        {
+            if (context.Entry(entityToDelete).State == EntityState.Detached)
+            {
+                dbSet.Attach(entityToDelete);
+            }
+
             dbSet.Remove(entityToDelete);
         }
 

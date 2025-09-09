@@ -2,6 +2,8 @@
 using IceSync.Core.Services;
 using IceSync.Core.Services.Interfaces;
 using IceSync.Core.SyncSerice;
+using IceSync.Core.SyncService;
+using IceSync.Core.SyncService.Interfaces;
 using IceSync.Data;
 using IceSync.Data.Entities;
 using IceSync.Data.Repositories;
@@ -22,6 +24,10 @@ namespace IceSync.Api.Extensions
             
             // Scheduled Service
             services.AddHostedService<WorkflowSyncService>();
+
+            // Caching
+            services.AddMemoryCache();
+            services.AddSingleton<IHashStore, MemoryHashStore>();
 
             // UnitOfWork and Repositories
             services.AddScoped<IIceSyncUnitOfWork, IceSyncUnitOfWork>();

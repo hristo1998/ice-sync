@@ -5,12 +5,7 @@ namespace IceSync.Data.Repositories.Interfaces
 {
     public interface IRepository<TEntity> where TEntity : class
     {
-        IEnumerable<TEntity> Get(
-            Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            string includeProperties = "");
-
-        Task<IEnumerable<TEntity>> GetAsync(
+        IQueryable<TEntity> All(
             Expression<Func<TEntity, bool>> filter = null,
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
             string includeProperties = "");

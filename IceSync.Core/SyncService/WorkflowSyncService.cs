@@ -1,7 +1,11 @@
-﻿using IceSync.Core.Constants;
+﻿using IceSync.Core.Config;
+using IceSync.Core.Constants;
+using IceSync.Core.Helpers;
 using IceSync.Core.Services.Interfaces;
+using IceSync.Core.SyncService.Interfaces;
 using IceSync.Data;
 using IceSync.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,6 +16,8 @@ public class WorkflowSyncService : BackgroundService
 {
     private readonly ILogger<WorkflowSyncService> logger;
     private readonly IServiceProvider serviceProvider;
+
+    private record WorkflowComparable(string WorkflowName, bool IsActive, string MultiExecBehavior);
 
     public WorkflowSyncService(
         ILogger<WorkflowSyncService> logger,
@@ -34,8 +40,27 @@ public class WorkflowSyncService : BackgroundService
 
                 var ulService = scope.ServiceProvider.GetRequiredService<IUniversalLoaderService>();
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IIceSyncUnitOfWork>();
+                var hashStore = scope.ServiceProvider.GetRequiredService<IHashStore>();
 
-                await SyncWorkflowsAsync(ulService, unitOfWork, ct);
+                var apiWorkflows = await ulService.GetWorkflowsAsync();
+
+                var newHash = HashHelper.ComputeHash(apiWorkflows);
+
+                var lastHash = await hashStore.GetAsync(CacheKeys.Workflows);
+
+                if (newHash == lastHash)
+                {
+                    logger.LogInformation("No changes detected in workflows (hash match). Skipping sync.");
+                }
+                else
+                {
+                    logger.LogInformation(MessagingConstants.SyncWorkflowStarted);
+                    await SyncWorkflowsAsync(apiWorkflows, unitOfWork);
+
+
+                    await hashStore.SetAsync(CacheKeys.Workflows, newHash);
+                    logger.LogInformation(MessagingConstants.SyncWorkflowCompleated, newHash);
+                }
             }
             catch (Exception ex)
             {
@@ -47,30 +72,26 @@ public class WorkflowSyncService : BackgroundService
     }
 
     private async Task SyncWorkflowsAsync(
-        IUniversalLoaderService ulService,
-        IIceSyncUnitOfWork unitOfWork,
-        CancellationToken ct
+        IList<Models.Workflow> apiWorkflows,
+        IIceSyncUnitOfWork unitOfWork        
         )
     {
-        logger.LogInformation(MessagingConstants.SyncWorkflowStarted);
-
-        var apiWorkflows = await ulService.GetWorkflowsAsync();
-        var dbWorkflows = await unitOfWork.WorkflowRepository.GetAsync();
-
-        var dbById = dbWorkflows.ToDictionary(w => w.WorkflowId);
+        var dbById = await unitOfWork.WorkflowRepository
+            .All()
+            .AsNoTracking()
+            .ToDictionaryAsync(w => w.WorkflowId);
 
         // Insert or update
         foreach (var apiWf in apiWorkflows)
         {
             if (dbById.TryGetValue(apiWf.Id, out var existing))
             {
-                if (existing.WorkflowName != apiWf.Name ||
-                    existing.IsActive != apiWf.IsActive ||
-                    existing.MultiExecBehavior != apiWf.MultiExecBehavior.ToString())
+                var dbComparable = new WorkflowComparable(existing.WorkflowName, existing.IsActive, existing.MultiExecBehavior);
+                var apiComparable = new WorkflowComparable(apiWf.Name, apiWf.IsActive, apiWf.MultiExecBehavior.ToString());
+
+                if (dbComparable != apiComparable)
                 {
-                    existing.WorkflowName = apiWf.Name;
-                    existing.IsActive = apiWf.IsActive;
-                    existing.MultiExecBehavior = apiWf.MultiExecBehavior.ToString();
+                    (existing.WorkflowName, existing.IsActive, existing.MultiExecBehavior) = apiComparable;
                     unitOfWork.WorkflowRepository.Update(existing);
                 }
 
@@ -95,10 +116,7 @@ public class WorkflowSyncService : BackgroundService
         {
             await unitOfWork.WorkflowRepository.DeleteAsync(leftover);
         }
-
         
         var result = unitOfWork.Save();
- 
-        logger.LogInformation(MessagingConstants.SyncWorkflowCompleated);
     }
 }
